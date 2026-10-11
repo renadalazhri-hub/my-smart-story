@@ -6,8 +6,8 @@
 # Dependencies
 node_modules/
 
-# Vercel
-.vercel/
+# Netlify
+.netlify/
 
 # Local tooling / OS / editor
 .claude/

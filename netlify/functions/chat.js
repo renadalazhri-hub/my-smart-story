@@ -1,11 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 
-// Reads ANTHROPIC_API_KEY from the environment (set it in Vercel → Settings → Environment Variables).
+// Reads ANTHROPIC_API_KEY from the environment (set it in Netlify → Site configuration → Environment variables).
 const client = new Anthropic();
 
 const MODEL = "claude-haiku-5-5";
 
-const MAX_IMAGE_BASE64_CHARS = 4_000_000; // Vercel rejects request bodies above ~4.5MB
+const MAX_IMAGE_BASE64_CHARS = 4_000_000; // keeps the request well under Netlify's 6MB body limit
 const MAX_CHAT_MESSAGES = 10;
 const MAX_CHAT_CHARS = 1000;
 
@@ -140,7 +140,14 @@ async function handleChat(body) {
   return Response.json({ reply });
 }
 
-export async function POST(request) {
+// Serve this function at the same URL the site already calls.
+export const config = { path: "/api/chat" };
+
+export default async function handler(request) {
+  if (request.method !== "POST") {
+    return Response.json({ error: "method_not_allowed" }, { status: 405, headers: { Allow: "POST" } });
+  }
+
   let body;
   try {
     body = await request.json();
