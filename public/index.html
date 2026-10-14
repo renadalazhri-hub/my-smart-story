@@ -1240,6 +1240,9 @@
   .hlp-input input{flex:1;border:2px solid var(--pill-border);border-radius:16px;padding:10px 12px;font:1rem 'Tajawal',sans-serif;background:transparent;color:var(--ink);min-width:0}
   .hlp-input button{border:0;border-radius:16px;padding:0 16px;background:var(--orange);color:#fff;font:800 1rem 'Tajawal',sans-serif;cursor:pointer}
   .hlp-input button:disabled{opacity:.5}
+  .hlp-input .hlp-mic{background:var(--purple);padding:0 12px;font-size:1.2rem}
+  .hlp-input .hlp-mic.rec{background:#E5484D;animation:hlpRec 1s ease-in-out infinite}
+  @keyframes hlpRec{0%,100%{box-shadow:0 0 0 0 rgba(229,72,77,.55)}50%{box-shadow:0 0 0 9px rgba(229,72,77,0)}}
   .hlp-note{font-size:.75rem;color:var(--ink-soft);text-align:center;padding:0 12px 8px}
 </style>
 
@@ -1258,6 +1261,7 @@
     <div class="hlp-view" id="hlpFaq"></div>
   </div>
   <div class="hlp-input" id="hlpInputRow">
+    <button id="hlpMic" class="hlp-mic" type="button" aria-label="تكلّم مع المساعد">🎤</button>
     <input id="hlpIn" type="text" placeholder="اكتب سؤالك هنا..." maxlength="400" autocomplete="off">
     <button id="hlpSend" type="button">إرسال</button>
   </div>
@@ -1306,8 +1310,9 @@
     if(!greeted){greeted=true;add('bot','أهلًا! 👋 أنا مساعد حكايتي. اسألني عن الموقع، أو اطلب فكرة لرسمة أو قصة 🎨');}
     if(v)show(v);
   }
-  fab.onclick=function(){panel.classList.contains('open')?panel.classList.remove('open'):openPanel();};
-  $('hlpClose').onclick=function(){panel.classList.remove('open');};
+  function closePanel(){panel.classList.remove('open');hush();}
+  fab.onclick=function(){panel.classList.contains('open')?closePanel():openPanel();};
+  $('hlpClose').onclick=closePanel;
   function show(v){
     document.querySelectorAll('.hlp-tab').forEach(function(t){t.classList.toggle('on',t.dataset.v===v);});
     $('hlpChat').classList.toggle('on',v==='chat');$('hlpFaq').classList.toggle('on',v==='faq');
@@ -1322,7 +1327,7 @@
     return score?best.a:'ما قدرت أتصل بالمساعد الذكي الحين 🙈 جرّب تبويب «أسئلة شائعة»، أو حاول بعد شوي.';
   }
 
-  function ask(text){
+  function ask(text,spoken){
     text=(text||'').trim(); if(!text||busy)return;
     add('user',text); history.push({role:'user',text:text}); inp.value='';
     busy=true; send.disabled=true;
@@ -1336,8 +1341,41 @@
     .then(function(reply){
       clearTimeout(t); bot.textContent=reply; history.push({role:'model',text:reply});
       busy=false; send.disabled=false; bot.scrollIntoView({block:'end'});
+      if(spoken&&panel.classList.contains('open'))say(reply);
     });
   }
+  // Voice chat: the child taps the mic, speaks, and hears the answer read aloud.
+  var mic=$('hlpMic'), SR=window.SpeechRecognition||window.webkitSpeechRecognition, rec=null, listening=false, heard='';
+  function say(text){
+    if(!window.speechSynthesis)return;
+    try{
+      window.speechSynthesis.cancel();
+      var u=new SpeechSynthesisUtterance(text.replace(/[\u{1F000}-\u{1FFFF}☀-➿️‍]/gu,''));
+      u.lang='ar-SA';u.rate=.95;window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  function hush(){
+    if(window.speechSynthesis){try{window.speechSynthesis.cancel();}catch(e){}}
+    if(rec&&listening){heard='';try{rec.abort();}catch(e){}}
+  }
+  if(!SR){mic.style.display='none';}
+  else mic.onclick=function(){
+    if(listening){rec.stop();return;}
+    if(busy)return;
+    hush(); heard='';
+    rec=new SR(); rec.lang='ar-SA'; rec.interimResults=true;
+    rec.onstart=function(){listening=true;mic.classList.add('rec');mic.textContent='⏹';inp.value='';inp.placeholder='أسمعك... تكلّم 🎤';};
+    rec.onresult=function(e){heard='';for(var i=0;i<e.results.length;i++)heard+=e.results[i][0].transcript;inp.value=heard;};
+    rec.onerror=function(e){
+      if(e.error==='not-allowed'||e.error==='service-not-allowed')add('bot','ما قدرت أسمعك 🙈 اطلب من أحد الكبار يسمح للموقع باستخدام المايك.');
+    };
+    rec.onend=function(){
+      listening=false;mic.classList.remove('rec');mic.textContent='🎤';inp.placeholder='اكتب سؤالك هنا...';
+      if(heard.trim())ask(heard,true);
+    };
+    try{rec.start();}catch(e){}
+  };
+
   send.onclick=function(){ask(inp.value);};
   inp.addEventListener('keydown',function(e){if(e.key==='Enter'){e.preventDefault();ask(inp.value);}});
 })();
