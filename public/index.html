@@ -255,9 +255,16 @@
   }
   .dropzone:hover, .dropzone.drag{ border-color: var(--pink); background:#FFF0F6; }
   .dropzone .emoji-big{ font-size:2.5rem; display:block; margin-bottom:8px; }
-  .dropzone .dz-title{ font-weight:700; font-size:1rem; color: var(--ink); }
-  .dropzone .dz-sub{ font-size:.8rem; color: var(--ink-soft2); margin-top:4px; }
-  #fileInput{ display:none; }
+  .dropzone .dz-title{ display:block; font-weight:700; font-size:1rem; color: var(--ink); }
+  .dropzone .dz-sub{ display:block; font-size:.8rem; color: var(--ink-soft2); margin-top:4px; }
+  #fileInput, #cameraInput{ display:none; }
+  .dropzone .dz-actions{ display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:12px; }
+  .dropzone .dz-btn{
+    border:2px solid var(--pill-border); border-radius:999px; background:#fff; color: var(--ink);
+    padding:8px 14px; font:700 .9rem 'Tajawal',sans-serif; cursor:pointer;
+  }
+  .dropzone .dz-btn:hover{ border-color: var(--pink); }
+  .dropzone.busy{ opacity:.6; pointer-events:none; }
 
   .preview-wrap{ position:relative; margin-top:12px; border-radius:18px; overflow:hidden; max-height:200px; display:none; }
   .preview-wrap.show{ display:block; }
@@ -463,10 +470,15 @@
         <label class="field-label">رسمة الطفل <span class="opt">(اختياري إن كتبت فكرة)</span></label>
         <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="ارفع صورة الرسمة">
           <span class="emoji-big">🎨</span>
-          <span class="dz-title">اضغط لرفع صورة رسمتك</span>
-          <span class="dz-sub">JPG أو PNG — بإمكانك التصوير مباشرة</span>
+          <span class="dz-title" id="dzTitle">اضغط لرفع صورة رسمتك</span>
+          <span class="dz-sub">صورة (JPG أو PNG) أو ملف PDF</span>
+          <div class="dz-actions">
+            <button type="button" class="dz-btn" id="btnPickFile">🖼️ من الصور أو PDF</button>
+            <button type="button" class="dz-btn" id="btnCamera">📷 صوّر الرسمة</button>
+          </div>
         </div>
-        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif" capture="environment">
+        <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp,image/gif,application/pdf,.pdf">
+        <input type="file" id="cameraInput" accept="image/*" capture="environment">
         <div class="preview-wrap" id="previewWrap">
           <button class="remove-img" id="btnRemoveImg" type="button" aria-label="إزالة الصورة">✕</button>
           <img id="previewImg" alt="رسمة الطفل المرفوعة">
@@ -679,7 +691,14 @@
   function showError(msg){ uploadError.textContent = msg; uploadError.classList.add('show'); }
   function hideError(){ uploadError.classList.remove('show'); uploadError.textContent = ''; }
 
+  var cameraInput = document.getElementById('cameraInput');
+  var dzTitle = document.getElementById('dzTitle');
   dropzone.addEventListener('click', function(){ fileInput.click(); });
+  document.getElementById('btnPickFile').addEventListener('click', function(e){ e.stopPropagation(); fileInput.click(); });
+  document.getElementById('btnCamera').addEventListener('click', function(e){ e.stopPropagation(); cameraInput.click(); });
+  cameraInput.addEventListener('change', function(){
+    if (cameraInput.files && cameraInput.files[0]) setImage(cameraInput.files[0]);
+  });
   dropzone.addEventListener('keydown', function(e){
     if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); fileInput.click(); }
   });
@@ -698,14 +717,70 @@
   });
   btnRemoveImg.addEventListener('click', function(e){ e.stopPropagation(); clearImage(); });
 
+  /* PDF support: the first page is rendered to a PNG, then handled like any uploaded image. */
+  var PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  var pdfjsReady = null;
+  function loadPdfJs(){
+    if (!pdfjsReady){
+      pdfjsReady = new Promise(function(resolve, reject){
+        var s = document.createElement('script');
+        s.src = PDFJS_BASE + 'pdf.min.js';
+        s.onload = function(){
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + 'pdf.worker.min.js';
+          resolve(window.pdfjsLib);
+        };
+        s.onerror = function(){ pdfjsReady = null; reject(new Error('pdfjs_load')); };
+        document.head.appendChild(s);
+      });
+    }
+    return pdfjsReady;
+  }
+  function pdfFirstPageToFile(file){
+    return Promise.all([loadPdfJs(), file.arrayBuffer()]).then(function(r){
+      return r[0].getDocument({ data: r[1] }).promise;
+    }).then(function(pdf){ return pdf.getPage(1); }).then(function(page){
+      var base = page.getViewport({ scale: 1 });
+      var viewport = page.getViewport({ scale: Math.min(3, 1600 / Math.max(base.width, base.height)) });
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.round(viewport.width);
+      canvas.height = Math.round(viewport.height);
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function(){
+        return new Promise(function(resolve, reject){
+          canvas.toBlob(function(blob){
+            if (blob) resolve(new File([blob], file.name.replace(/\.pdf$/i, '') + '.png', { type: 'image/png' }));
+            else reject(new Error('pdf_render'));
+          }, 'image/png');
+        });
+      });
+    });
+  }
+
   function setImage(file){
     hideError();
-    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){
-      showError('الرجاء اختيار صورة بصيغة JPG أو PNG أو WEBP.');
+    if (file.size > 19 * 1024 * 1024){
+      showError('حجم الملف كبير جدًا، جرّب ملفًا أصغر.');
       return;
     }
-    if (file.size > 19 * 1024 * 1024){
-      showError('حجم الصورة كبير جدًا، جرّب صورة أصغر.');
+    if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)){
+      var oldTitle = dzTitle.textContent;
+      dzTitle.textContent = 'جاري تجهيز ملف PDF... ⏳';
+      dropzone.classList.add('busy');
+      pdfFirstPageToFile(file).then(function(png){
+        setImage(png);
+      }).catch(function(){
+        showError('ما قدرنا نفتح ملف PDF، جرّب ملفًا آخر أو صورة.');
+      }).then(function(){
+        dzTitle.textContent = oldTitle;
+        dropzone.classList.remove('busy');
+        fileInput.value = '';
+      });
+      return;
+    }
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){
+      showError('الرجاء اختيار صورة بصيغة JPG أو PNG أو WEBP، أو ملف PDF.');
       return;
     }
     currentFile = file;
@@ -722,6 +797,7 @@
     previewWrap.classList.remove('show');
     dropzone.style.display = '';
     fileInput.value = '';
+    cameraInput.value = '';
   }
 
   document.querySelectorAll('.chip').forEach(function(chip){
