@@ -362,6 +362,35 @@
   }
   .copy-toast.show{ opacity:1; }
 
+  /* ===== Save prompt + library ===== */
+  #btnLibrary{ margin-top:-8px; }
+  .save-card{ text-align:center; }
+  .save-hero{ font-size:3.2rem; margin-bottom:6px; animation: funFloat 4s ease-in-out infinite; }
+  .save-perks{ list-style:none; margin:4px 0 20px; padding:0; display:flex; flex-direction:column; gap:10px; text-align:right; }
+  .save-perks li{ display:flex; gap:12px; align-items:flex-start; background: var(--card-bg-soft); border-radius:16px; padding:12px 14px; }
+  .save-perks li > span{ font-size:1.6rem; line-height:1; }
+  .save-perks b{ display:block; font-size:.98rem; margin-bottom:2px; color: var(--ink); }
+  .save-perks div{ font-size:.86rem; line-height:1.7; color: var(--ink-soft2); }
+  .btn-google{ width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    background: linear-gradient(180deg, var(--purple), #6E5FC9); box-shadow:0 10px 24px rgba(110,95,201,.4); }
+  .g-badge{ width:28px; height:28px; border-radius:50%; background:#fff; color:#4285F4; font:800 1rem Arial,sans-serif;
+    display:inline-flex; align-items:center; justify-content:center; }
+  .save-note{ font-size:.8rem; color: var(--ink-soft2); margin:10px 0 0; }
+  .save-error{ font-size:.85rem; color:#C0392B; margin:8px 0 0; min-height:0; }
+  .save-error:empty{ display:none; }
+  .save-skip{ background:none; border:none; color: var(--ink-soft2); font:600 .9rem 'Tajawal',sans-serif;
+    margin-top:12px; padding:8px; cursor:pointer; text-decoration:underline; }
+  .lib-grid{ display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-bottom:18px; }
+  .lib-item{ position:relative; border:none; padding:0; border-radius:18px; overflow:hidden; cursor:pointer;
+    background: var(--card-bg-soft); text-align:right; font-family:"Tajawal",sans-serif; color: var(--ink); }
+  .lib-cover{ height:96px; display:flex; align-items:center; justify-content:center; font-size:2.4rem;
+    background: linear-gradient(160deg, var(--purple), #6E5FC9); }
+  .lib-cover img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .lib-title{ display:block; padding:8px 10px 2px; font-weight:700; font-size:.88rem; line-height:1.5; }
+  .lib-date{ display:block; padding:0 10px 10px; font-size:.72rem; color: var(--ink-soft2); }
+  .lib-del{ position:absolute; top:6px; left:6px; width:30px; height:30px; border-radius:50%; border:none;
+    background: rgba(255,255,255,.9); cursor:pointer; font-size:.9rem; }
+
   @media (max-width:360px){
     .wordmark{ font-size:2.1rem; }
     .how-it-works{ flex-direction:column; }
@@ -387,6 +416,7 @@
     </div>
 
     <button class="btn" id="btnStart" type="button">ابدأ قصتك</button>
+    <button class="btn btn-ghost small" id="btnLibrary" type="button">📚 مكتبة قصصي</button>
 
     <div class="trust-row">
       <span class="trust-badge">🔒 آمن للأطفال</span>
@@ -547,6 +577,40 @@
     <div class="end-actions" id="endActions" style="display:none;">
       <button class="btn btn-green" id="btnCopy" type="button">📋 انسخ نص القصة</button>
       <button class="btn" id="btnRestart" type="button">✨ اكتب حكاية جديدة</button>
+      <button class="btn btn-ghost" id="btnEndLibrary" type="button">📚 مكتبة قصصي</button>
+    </div>
+  </section>
+
+  <!-- ===== Screen 5: Save your stories (shown once, after the first story) ===== -->
+  <section class="screen" id="screen-save" aria-label="احفظ قصصك">
+    <div class="card save-card">
+      <div class="save-hero" aria-hidden="true">📚✨</div>
+      <h2 id="saveTitle">لا تخلّي حكايتك تضيع!</h2>
+      <p class="hint" id="saveLead">حكايتك كانت رائعة! 🌟 بس انتبه: إذا طلعت من الموقع بتختفي 😢 سجّل دخولك وخلّ كل حكاية تصنعها محفوظة لك دايم.</p>
+      <ul class="save-perks">
+        <li><span aria-hidden="true">📖</span><div><b>مكتبة قصصك الخاصة</b>كل حكاية جديدة تنحفظ تلقائيًا، وترجع لها متى ما تبي.</div></li>
+        <li><span aria-hidden="true">🎨</span><div><b>رسمتك محفوظة معها</b>كل قصة تبقى مع الرسمة اللي صنعتها بيدك.</div></li>
+        <li><span aria-hidden="true">🌙</span><div><b>حكاية قبل النوم كل ليلة</b>اقرأها واسمعها مرة ثانية وثالثة، وجرّب نهاية ثانية.</div></li>
+        <li><span aria-hidden="true">📱</span><div><b>معك من أي جهاز</b>جوال أو تابلت أو كمبيوتر، قصصك تنتظرك وين ما رحت.</div></li>
+      </ul>
+      <button class="btn btn-google" id="btnSaveLogin" type="button"><span class="g-badge">G</span> سجّل دخولك واحفظ قصصي</button>
+      <p class="save-note">🔒 الدخول بحساب Google لولي الأمر — مجاني وياخذ ثواني.</p>
+      <p class="save-error" id="saveError" role="alert"></p>
+      <button class="save-skip" id="btnSaveSkip" type="button">لاحقًا، أكمل بدون حفظ</button>
+    </div>
+  </section>
+
+  <!-- ===== Screen 6: My stories library ===== -->
+  <section class="screen" id="screen-library" aria-label="مكتبة قصصي">
+    <div class="top-row">
+      <button class="back-link" id="btnLibBack" type="button">→ رجوع</button>
+      <button class="back-link" id="btnSignOut" type="button">تسجيل الخروج</button>
+    </div>
+    <div class="card">
+      <h2>📚 مكتبة قصصي</h2>
+      <p class="hint" id="libHint">جاري تحميل قصصك...</p>
+      <div class="lib-grid" id="libGrid"></div>
+      <button class="btn" id="btnLibNew" type="button">✨ اكتب حكاية جديدة</button>
     </div>
   </section>
 
@@ -596,7 +660,9 @@
     home: document.getElementById('screen-home'),
     upload: document.getElementById('screen-upload'),
     generating: document.getElementById('screen-generating'),
-    story: document.getElementById('screen-story')
+    story: document.getElementById('screen-story'),
+    save: document.getElementById('screen-save'),
+    library: document.getElementById('screen-library')
   };
   function showScreen(name){
     Object.keys(screens).forEach(function(k){
@@ -621,7 +687,7 @@
     },
     privacy: {
       title: 'سياسة الخصوصية',
-      html: '<p>الصورة التي ترفعها تُستخدم فقط لحظيًا لإنشاء القصة، ولا يتم تخزينها بشكل دائم على خوادمنا.</p><p>لا نطلب معلومات شخصية حساسة، ولا نعرض أي إعلانات، ولا نشارك بيانات الأطفال مع أي جهة خارجية.</p><p>لأي استفسار حول الخصوصية، يمكنك التواصل معنا عبر البريد الموضح في صفحة «من نحن».</p>'
+      html: '<p>الصورة التي ترفعها تُستخدم فقط لحظيًا لإنشاء القصة، ولا يتم تخزينها بشكل دائم على خوادمنا.</p><p>إذا سجّل ولي الأمر دخوله بحساب Google لحفظ القصص، نحفظ القصص مع نسخة مصغّرة من الرسمة في مكتبته الخاصة (عبر خدمة Firebase من Google)، ولا يراها أحد غيره، ويقدر يحذف أي قصة متى ما شاء.</p><p>لا نطلب معلومات شخصية حساسة، ولا نعرض أي إعلانات، ولا نشارك بيانات الأطفال مع أي جهة خارجية.</p><p>لأي استفسار حول الخصوصية، يمكنك التواصل معنا عبر البريد الموضح في صفحة «من نحن».</p>'
     }
   };
   function openModal(kind){
@@ -867,12 +933,15 @@
     generateStory(file, params).then(function(data){
       stopStepAnimation();
       storyData = normalizeStory(data, params);
+      openedFromLibrary = false;
       renderStoryIntro();
       setAiNotice('success');
       showScreen('story');
+      if (mss.onStoryCreated) mss.onStoryCreated({ story: storyData, image: file });
     }).catch(function(err){
       stopStepAnimation();
       storyData = fallbackStory(params);
+      openedFromLibrary = false;
       renderStoryIntro();
       setAiNotice('fallback');
       showScreen('story');
@@ -1279,8 +1348,28 @@
       stopSpeaking();
       storyNav.style.display = 'none';
       endActions.style.display = 'flex';
+      if (!openedFromLibrary && mss.onStoryFinished) mss.onStoryFinished();
     }
   });
+
+  /* ---------- Bridge for the account module (login + saved stories) ---------- */
+  var openedFromLibrary = false;
+  var mss = window.mss = {
+    showScreen: showScreen,
+    onStoryCreated: null,
+    onStoryFinished: null,
+    openStory: function(story, coverURL){
+      stopSpeaking();
+      clearImage();
+      storyData = story;
+      currentImgURL = coverURL || null;
+      openedFromLibrary = true;
+      var notice = document.getElementById('aiNotice');
+      if (notice){ notice.style.display = 'none'; }
+      renderStoryIntro();
+      showScreen('story');
+    }
+  };
 
 })();
 </script>
@@ -1352,7 +1441,7 @@
     {g:'👧 للأطفال', q:'كيف أختار طريقي في القصة؟', a:'في وسط القصة بتطلع لك أزرار، اختار اللي يعجبك، وكل اختيار يغيّر الحكاية ونهايتها!'},
     {g:'👧 للأطفال', q:'أقدر أسمع القصة؟', a:'إيه! اضغط زر السماعة 🔊 في صفحة القصة وبتنقرأ لك بصوت.'},
     {g:'👨‍👩‍👧 لأولياء الأمور', q:'هل الموقع آمن لطفلي؟', a:'نعم، القصص مكتوبة لتكون مناسبة للأطفال بدون عنف أو محتوى مخيف، والموقع بدون إعلانات.'},
-    {g:'👨‍👩‍👧 لأولياء الأمور', q:'هل تُحفظ صور رسومات طفلي؟', a:'لا نحفظ الرسومات في قاعدة بيانات. الصورة تُستخدم فقط لصنع القصة لحظتها.'},
+    {g:'👨‍👩‍👧 لأولياء الأمور', q:'هل تُحفظ صور رسومات طفلي؟', a:'بدون تسجيل دخول لا نحفظ شيئًا، والصورة تُستخدم فقط لصنع القصة لحظتها. إذا سجّلت دخولك لحفظ القصص، تنحفظ القصة مع نسخة صغيرة من الرسمة في مكتبتك الخاصة، وتقدر تحذفها متى ما تبي.'},
     {g:'👨‍👩‍👧 لأولياء الأمور', q:'لأي عمر يناسب الموقع؟', a:'مصمم للأعمار من 4 إلى 9 سنوات، وتقدر تختار الفئة العمرية لتتغير الكلمات وطول الجمل.'},
     {g:'👨‍👩‍👧 لأولياء الأمور', q:'هل الموقع مجاني؟', a:'نعم، صناعة القصص مجانية.'},
     {g:'👨‍👩‍👧 لأولياء الأمور', q:'كيف أستفيد منه تعليميًا؟', a:'اقرأ القصة مع طفلك، واسأله لماذا اختار هذا الطريق، واطلب منه يرسم نهاية ثالثة. هذا ينمّي الخيال والتفكير واتخاذ القرار.'}
@@ -1564,4 +1653,5 @@
 </script>
 
 
+<script type="module" src="./account.js"></script>
 </body></html>
