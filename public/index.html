@@ -364,14 +364,17 @@
 
   /* ===== Save prompt + library ===== */
   #btnLibrary{ margin-top:-8px; }
+  #screen-save{ padding-bottom:84px; } /* room for the helper bubble */
   .save-card{ text-align:center; }
-  .save-hero{ font-size:3.2rem; margin-bottom:6px; animation: funFloat 4s ease-in-out infinite; }
-  .save-perks{ list-style:none; margin:4px 0 20px; padding:0; display:flex; flex-direction:column; gap:10px; text-align:right; }
-  .save-perks li{ display:flex; gap:12px; align-items:flex-start; background: var(--card-bg-soft); border-radius:16px; padding:12px 14px; }
-  .save-perks li > span{ font-size:1.6rem; line-height:1; }
-  .save-perks b{ display:block; font-size:.98rem; margin-bottom:2px; color: var(--ink); }
-  .save-perks div{ font-size:.86rem; line-height:1.7; color: var(--ink-soft2); }
+  .save-card .hint{ margin-bottom:14px; }
+  .save-hero{ font-size:2.6rem; margin-bottom:2px; animation: funFloat 4s ease-in-out infinite; }
+  .save-perks{ list-style:none; margin:0 0 16px; padding:0; display:flex; flex-direction:column; gap:8px; text-align:right; }
+  .save-perks li{ display:flex; gap:12px; align-items:center; background: var(--card-bg-soft); border-radius:16px; padding:9px 12px; }
+  .save-perks li > span{ font-size:1.5rem; line-height:1; }
+  .save-perks b{ display:block; font-size:.94rem; color: var(--ink); }
+  .save-perks div{ font-size:.82rem; line-height:1.6; color: var(--ink-soft2); }
   .btn-google{ width:100%; display:flex; align-items:center; justify-content:center; gap:10px;
+    font-size:1.05rem; padding:14px 18px; white-space:nowrap;
     background: linear-gradient(180deg, var(--purple), #6E5FC9); box-shadow:0 10px 24px rgba(110,95,201,.4); }
   .g-badge{ width:28px; height:28px; border-radius:50%; background:#fff; color:#4285F4; font:800 1rem Arial,sans-serif;
     display:inline-flex; align-items:center; justify-content:center; }
@@ -416,7 +419,7 @@
     </div>
 
     <button class="btn" id="btnStart" type="button">ابدأ قصتك</button>
-    <button class="btn btn-ghost small" id="btnLibrary" type="button">📚 مكتبة قصصي</button>
+    <button class="btn btn-ghost small" id="btnLibrary" type="button" hidden>📚 مكتبة قصصي</button>
 
     <div class="trust-row">
       <span class="trust-badge">🔒 آمن للأطفال</span>
@@ -577,7 +580,7 @@
     <div class="end-actions" id="endActions" style="display:none;">
       <button class="btn btn-green" id="btnCopy" type="button">📋 انسخ نص القصة</button>
       <button class="btn" id="btnRestart" type="button">✨ اكتب حكاية جديدة</button>
-      <button class="btn btn-ghost" id="btnEndLibrary" type="button">📚 مكتبة قصصي</button>
+      <button class="btn btn-ghost" id="btnEndLibrary" type="button" hidden>📚 مكتبة قصصي</button>
     </div>
   </section>
 
@@ -588,13 +591,13 @@
       <h2 id="saveTitle">لا تخلّي حكايتك تضيع!</h2>
       <p class="hint" id="saveLead">حكايتك كانت رائعة! 🌟 بس انتبه: إذا طلعت من الموقع بتختفي 😢 سجّل دخولك وخلّ كل حكاية تصنعها محفوظة لك دايم.</p>
       <ul class="save-perks">
-        <li><span aria-hidden="true">📖</span><div><b>مكتبة قصصك الخاصة</b>كل حكاية جديدة تنحفظ تلقائيًا، وترجع لها متى ما تبي.</div></li>
+        <li><span aria-hidden="true">📖</span><div><b>مكتبة قصصك الخاصة</b>كل حكاية تنحفظ تلقائيًا وترجع لها متى ما تبي.</div></li>
         <li><span aria-hidden="true">🎨</span><div><b>رسمتك محفوظة معها</b>كل قصة تبقى مع الرسمة اللي صنعتها بيدك.</div></li>
-        <li><span aria-hidden="true">🌙</span><div><b>حكاية قبل النوم كل ليلة</b>اقرأها واسمعها مرة ثانية وثالثة، وجرّب نهاية ثانية.</div></li>
-        <li><span aria-hidden="true">📱</span><div><b>معك من أي جهاز</b>جوال أو تابلت أو كمبيوتر، قصصك تنتظرك وين ما رحت.</div></li>
+        <li><span aria-hidden="true">🌙</span><div><b>حكاية قبل النوم كل ليلة</b>اقرأها واسمعها مرة ثانية، وجرّب نهاية ثانية.</div></li>
+        <li><span aria-hidden="true">📱</span><div><b>معك من أي جهاز</b>جوال أو تابلت أو كمبيوتر، قصصك تنتظرك.</div></li>
       </ul>
-      <button class="btn btn-google" id="btnSaveLogin" type="button"><span class="g-badge">G</span> سجّل دخولك واحفظ قصصي</button>
-      <p class="save-note">🔒 الدخول بحساب Google لولي الأمر — مجاني وياخذ ثواني.</p>
+      <button class="btn btn-google" id="btnSaveLogin" type="button"><span class="g-badge">G</span> احفظ قصصي بحساب Google</button>
+      <p class="save-note">🔒 الدخول لولي الأمر — مجاني وياخذ ثواني، وقصصك ما يشوفها غيرك.</p>
       <p class="save-error" id="saveError" role="alert"></p>
       <button class="save-skip" id="btnSaveSkip" type="button">لاحقًا، أكمل بدون حفظ</button>
     </div>

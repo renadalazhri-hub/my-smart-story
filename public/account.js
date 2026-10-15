@@ -103,10 +103,14 @@ $("btnSaveLogin").addEventListener("click", async () => {
   $("saveError").textContent = "";
   btn.disabled = true;
   try {
+    // Open the Google window straight from the click: browsers (Safari especially) block
+    // popups opened after waiting on a download, so Firebase is preloaded at startup.
+    const popup = fb && !user ? fb.authApi.signInWithPopup(fb.auth, new fb.authApi.GoogleAuthProvider()) : null;
     const { auth, authApi } = await loadFirebase();
-    if (!user) {
-      const result = await authApi.signInWithPopup(auth, new authApi.GoogleAuthProvider());
-      user = result.user;
+    if (popup) {
+      user = (await popup).user;
+    } else if (!user) {
+      user = (await authApi.signInWithPopup(auth, new authApi.GoogleAuthProvider())).user;
     }
     if (unsaved) {
       await saveStory(unsaved);
@@ -240,5 +244,13 @@ mss.onStoryFinished = () => {
   }
 };
 
-// Restore an existing session quietly so signed-in users don't see the prompt.
-if (firebaseConfig.apiKey) loadFirebase().catch((err) => console.error(err));
+// Saving only appears once Firebase is set up in firebase-config.js; until then the site works as before.
+if (firebaseConfig.apiKey) {
+  $("btnLibrary").hidden = false;
+  $("btnEndLibrary").hidden = false;
+  // Restore an existing session quietly so signed-in users don't see the prompt.
+  loadFirebase().catch((err) => console.error(err));
+} else {
+  mss.onStoryCreated = null;
+  mss.onStoryFinished = null;
+}
