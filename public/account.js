@@ -88,19 +88,55 @@ function showSavePrompt(from, reason) {
   $("saveError").textContent = "";
   if (reason === "library") {
     $("saveTitle").textContent = "مكتبة قصصك تنتظرك! 📚";
-    $("saveLead").textContent = "سجّل دخولك وكل حكاية تصنعها تنحفظ في مكتبتك، ترجع لها وتقرأها متى ما تبي.";
+    $("saveLead").textContent = "خلّ ماما أو بابا يسجّلون الدخول، وكل حكاية تصنعها تنحفظ في مكتبتك، ترجع لها وتقرأها متى ما تبي.";
   } else {
     $("saveTitle").textContent = "لا تخلّي حكايتك تضيع!";
-    $("saveLead").textContent = "حكايتك كانت رائعة! 🌟 بس انتبه: إذا طلعت من الموقع بتختفي 😢 سجّل دخولك وخلّ كل حكاية تصنعها محفوظة لك دايم.";
+    $("saveLead").textContent = "حكايتك كانت رائعة! 🌟 بس انتبه: إذا طلعت من الموقع بتختفي 😢 خلّ ماما أو بابا يسجّلون الدخول، وكل حكاية تصنعها تنحفظ لك دايم.";
   }
+  $("parentGate").hidden = true;
+  $("btnSaveLogin").hidden = false;
   mss.showScreen("save");
 }
 
 $("btnSaveSkip").addEventListener("click", () => mss.showScreen(returnTo));
 
-$("btnSaveLogin").addEventListener("click", async () => {
-  const btn = $("btnSaveLogin");
+/* ---------- Parent gate: a sum young children can't solve, before the Google window ---------- */
+let gateAnswer = 0;
+function newGateQuestion() {
+  const a = 12 + Math.floor(Math.random() * 8); // 12–19
+  const b = 3 + Math.floor(Math.random() * 7); // 3–9
+  gateAnswer = a * b;
+  $("gateQ").textContent = `${a} × ${b}`;
+  $("gateAns").value = "";
+}
+
+$("btnSaveLogin").addEventListener("click", () => {
   $("saveError").textContent = "";
+  if (user) { login(); return; }
+  newGateQuestion();
+  $("gateErr").textContent = "";
+  $("btnSaveLogin").hidden = true;
+  $("parentGate").hidden = false;
+  $("gateAns").focus();
+});
+
+function checkGate() {
+  const typed = $("gateAns").value.trim().replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)));
+  if (Number(typed) === gateAnswer) {
+    $("parentGate").hidden = true;
+    $("btnSaveLogin").hidden = false;
+    login();
+  } else {
+    $("gateErr").textContent = "الإجابة غير صحيحة. هذي الخطوة لولي الأمر 🙂";
+    newGateQuestion();
+  }
+}
+$("btnGateGo").addEventListener("click", checkGate);
+$("gateAns").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); checkGate(); } });
+
+// Called directly from a click so the Google window isn't blocked.
+async function login() {
+  const btn = $("btnSaveLogin");
   btn.disabled = true;
   try {
     // Open the Google window straight from the click: browsers (Safari especially) block
@@ -133,7 +169,7 @@ $("btnSaveLogin").addEventListener("click", async () => {
   } finally {
     btn.disabled = false;
   }
-});
+}
 
 /* ---------- Library ---------- */
 function formatDate(ts) {
