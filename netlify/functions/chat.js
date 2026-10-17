@@ -1,7 +1,9 @@
-// Talks to Google's Gemini API. The key is read from the GEMINI_API_KEY environment variable
+import Anthropic from "@anthropic-ai/sdk";
+
+// Talks to Claude. The key is read from the ANTHROPIC_API_KEY environment variable
 // (set it in Netlify → Site configuration → Environment variables).
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
-const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const client = new Anthropic();
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5";
 
 const MAX_IMAGE_BASE64_CHARS = 4_000_000; // keeps the request well under Netlify's 6MB body limit
 const MAX_CHAT_MESSAGES = 10;
@@ -36,11 +38,16 @@ const AGE_LABELS = {
   "8-9": "من 8 إلى 9 سنوات (مفردات أغنى قليلًا)",
 };
 
-const str = { type: "STRING" };
-const obj = (properties) => ({ type: "OBJECT", properties, required: Object.keys(properties) });
+const str = { type: "string" };
+const obj = (properties) => ({
+  type: "object",
+  properties,
+  required: Object.keys(properties),
+  additionalProperties: false,
+});
 const character = obj({ name: str, description: str });
 const option = obj({ id: str, label: str, resultText: str, emoji: str });
-const decision = obj({ prompt: str, options: { type: "ARRAY", items: option } });
+const decision = obj({ prompt: str, options: { type: "array", items: option } });
 const ending = obj({ title: str, text: str, emoji: str });
 const STORY_SCHEMA = obj({
   title: str,
@@ -51,13 +58,6 @@ const STORY_SCHEMA = obj({
   decision2: decision,
   endings: obj({ path_a: ending, path_b: ending }),
 });
-
-class GeminiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
 
 // The story always has the same 7 pages; "length" sets how much text each page gets.
 const LENGTH_LABELS = {
@@ -90,42 +90,21 @@ function buildStoryPrompt(params, hasImage) {
   ].join("\n");
 }
 
-// Returns the model's text, or null when it produced nothing (e.g. blocked by safety filters).
-async function ask({ system, contents, maxOutputTokens, schema }) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new GeminiError(401, "GEMINI_API_KEY is not set");
-
-  const generationConfig = { maxOutputTokens };
-  if (schema) {
-    generationConfig.responseMimeType = "application/json";
-    generationConfig.responseSchema = schema;
-  }
-
-  const response = await fetch(API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-    body: JSON.stringify({
-      systemInstruction: { parts: [{ text: system }] },
-      contents,
-      generationConfig,
-    }),
-    signal: AbortSignal.timeout(55_000),
+// Returns the model's text, or null when it declined or produced nothing.
+async function ask({ system, messages, maxTokens, effort, format }) {
+  const response = await client.messages.create({
+    model: MODEL,
+    max_tokens: maxTokens,
+    system,
+    messages,
+    output_config: format ? { effort, format } : { effort },
   });
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new GeminiError(response.status, detail.slice(0, 500));
-  }
-
-  const data = await response.json();
-  const parts = data.candidates?.[0]?.content?.parts ?? [];
-  const text = parts
-    .filter((part) => typeof part.text === "string" && !part.thought)
-    .map((part) => part.text)
+  if (response.stop_reason === "refusal") return null;
+  const text = response.content
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
     .join("")
     .trim();
-  if (!text) {
-    console.error("Gemini returned no text:", data.promptFeedback?.blockReason ?? data.candidates?.[0]?.finishReason);
-  }
   return text || null;
 }
 
@@ -137,34 +116,37 @@ async function handleStory(body) {
     return Response.json({ error: "image_too_large" }, { status: 413 });
   }
 
-  const parts = [];
-  if (image) parts.push({ inlineData: { mimeType: "image/jpeg", data: image } });
-  parts.push({ text: buildStoryPrompt(params, Boolean(image)) });
+  const content = [];
+  if (image) {
+    content.push({ type: "image", source: { type: "base64", media_type: "image/jpeg", data: image } });
+  }
+  content.push({ type: "text", text: buildStoryPrompt(params, Boolean(image)) });
 
   const text = await ask({
     system: STORY_SYSTEM,
-    contents: [{ role: "user", parts }],
-    maxOutputTokens: 8192,
-    schema: STORY_SCHEMA,
+    messages: [{ role: "user", content }],
+    maxTokens: 16000,
+    effort: "medium",
+    format: { type: "json_schema", schema: STORY_SCHEMA },
   });
   if (!text) return Response.json({ error: "no_story" }, { status: 502 });
   return Response.json({ story: JSON.parse(text) });
 }
 
 async function handleChat(body) {
-  const contents = (Array.isArray(body.messages) ? body.messages : [])
+  const messages = (Array.isArray(body.messages) ? body.messages : [])
     .slice(-MAX_CHAT_MESSAGES)
     .map((m) => ({
-      role: m && m.role === "user" ? "user" : "model",
-      parts: [{ text: clip(m && m.text, MAX_CHAT_CHARS) }],
+      role: m && m.role === "user" ? "user" : "assistant",
+      content: clip(m && m.text, MAX_CHAT_CHARS),
     }))
-    .filter((m) => m.parts[0].text);
-  while (contents.length && contents[0].role !== "user") contents.shift();
-  if (!contents.length || contents[contents.length - 1].role !== "user") {
+    .filter((m) => m.content);
+  while (messages.length && messages[0].role !== "user") messages.shift();
+  if (!messages.length || messages[messages.length - 1].role !== "user") {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
-  const reply = await ask({ system: CHAT_SYSTEM, contents, maxOutputTokens: 2048 });
+  const reply = await ask({ system: CHAT_SYSTEM, messages, maxTokens: 4000, effort: "low" });
   if (!reply) return Response.json({ error: "no_reply" }, { status: 502 });
   return Response.json({ reply });
 }
@@ -194,12 +176,15 @@ export default async function handler(request) {
   try {
     return body.type === "story" ? await handleStory(body) : await handleChat(body);
   } catch (error) {
-    if (error instanceof GeminiError) {
-      console.error(`Gemini API error ${error.status}: ${error.message}`);
-      if (error.status === 429) return Response.json({ error: "busy" }, { status: 429 });
-      if (error.status === 401 || error.status === 403) {
-        return Response.json({ error: "server_misconfigured" }, { status: 500 });
-      }
+    if (error instanceof Anthropic.AuthenticationError) {
+      console.error("ANTHROPIC_API_KEY is missing or invalid");
+      return Response.json({ error: "server_misconfigured" }, { status: 500 });
+    }
+    if (error instanceof Anthropic.RateLimitError) {
+      return Response.json({ error: "busy" }, { status: 429 });
+    }
+    if (error instanceof Anthropic.APIError) {
+      console.error(`Anthropic API error ${error.status}: ${error.message}`);
       return Response.json({ error: "ai_error" }, { status: 502 });
     }
     console.error(error);
