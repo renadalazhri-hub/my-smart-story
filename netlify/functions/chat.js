@@ -173,9 +173,16 @@ export default async function handler(request) {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
     console.error("ANTHROPIC_API_KEY is not available to this function (check the variable's scopes in Netlify)");
     return Response.json({ error: "missing_key" }, { status: 500 });
+  }
+  // A key retyped by hand can pick up look-alike letters (e.g. Cyrillic "З" for "3") or spaces,
+  // which fail deep inside the HTTP client with an unhelpful TypeError.
+  if (!/^[\x21-\x7e]+$/.test(apiKey)) {
+    console.error("ANTHROPIC_API_KEY contains spaces or non-English characters; paste it again from the Anthropic console");
+    return Response.json({ error: "bad_key" }, { status: 500 });
   }
 
   try {
@@ -193,9 +200,6 @@ export default async function handler(request) {
       return Response.json({ error: "ai_error" }, { status: 502 });
     }
     console.error(error);
-    return Response.json(
-      { error: "server_error", detail: String(error && error.message).slice(0, 300), stack: String(error && error.stack).split("\n").slice(0, 4).join(" | ") },
-      { status: 500 },
-    );
+    return Response.json({ error: "server_error" }, { status: 500 });
   }
 }
