@@ -193,6 +193,9 @@ export default async function handler(request) {
       return Response.json({ error: "ai_error" }, { status: 502 });
     }
     console.error(error);
-    return Response.json({ error: "server_error", detail: String(error && error.name) }, { status: 500 });
+    return Response.json(
+      { error: "server_error", detail: String(error && error.message).slice(0, 300), stack: String(error && error.stack).split("\n").slice(0, 4).join(" | ") },
+      { status: 500 },
+    );
   }
 }
