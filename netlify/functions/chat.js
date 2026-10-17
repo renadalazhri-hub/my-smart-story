@@ -173,6 +173,11 @@ export default async function handler(request) {
     return Response.json({ error: "bad_request" }, { status: 400 });
   }
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("ANTHROPIC_API_KEY is not available to this function (check the variable's scopes in Netlify)");
+    return Response.json({ error: "missing_key" }, { status: 500 });
+  }
+
   try {
     return body.type === "story" ? await handleStory(body) : await handleChat(body);
   } catch (error) {
@@ -188,6 +193,6 @@ export default async function handler(request) {
       return Response.json({ error: "ai_error" }, { status: 502 });
     }
     console.error(error);
-    return Response.json({ error: "server_error" }, { status: 500 });
+    return Response.json({ error: "server_error", detail: String(error && error.name) }, { status: 500 });
   }
 }
