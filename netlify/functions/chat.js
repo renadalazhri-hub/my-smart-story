@@ -2,7 +2,9 @@ import Anthropic from "@anthropic-ai/sdk";
 
 // Talks to Claude. The key is read from the ANTHROPIC_API_KEY environment variable
 // (set it in Netlify → Site configuration → Environment variables).
-const client = new Anthropic();
+// Kids wait on this: give up on a call after 50s (the page shows the ready-made story at 55s).
+// One retry still helps with quick failures such as a momentary overload.
+const client = new Anthropic({ timeout: 50_000, maxRetries: 1 });
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-5-5";
 
 const MAX_IMAGE_BASE64_CHARS = 4_000_000; // keeps the request well under Netlify's 6MB body limit
@@ -126,7 +128,7 @@ async function handleStory(body) {
     system: STORY_SYSTEM,
     messages: [{ role: "user", content }],
     maxTokens: 16000,
-    effort: "medium",
+    effort: "low", // much faster; the story follows a fixed structure, so it doesn't need long thinking
     format: { type: "json_schema", schema: STORY_SCHEMA },
   });
   if (!text) return Response.json({ error: "no_story" }, { status: 502 });

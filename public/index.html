@@ -1155,7 +1155,7 @@
       var img = new Image();
       img.onload = function(){
         try {
-          var scale = Math.min(1, 1568 / Math.max(img.width, img.height));
+          var scale = Math.min(1, 1024 / Math.max(img.width, img.height)); // plenty for a drawing, and faster to read
           var c = document.createElement('canvas');
           c.width = Math.max(1, Math.round(img.width * scale));
           c.height = Math.max(1, Math.round(img.height * scale));
@@ -1174,7 +1174,8 @@
 
   function generateStory(file, params){
     var ctrl = new AbortController();
-    var giveUpTimer = setTimeout(function(){ ctrl.abort(); }, 65000);
+    // Never keep a child waiting more than a minute: after 55s show the ready-made story instead.
+    var giveUpTimer = setTimeout(function(){ ctrl.abort(); }, 55000);
     var imageReady = file ? fileToJpegBase64(file).catch(function(){ return null; }) : Promise.resolve(null);
     return imageReady
       .then(function(image){
