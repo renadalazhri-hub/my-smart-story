@@ -1198,6 +1198,35 @@
       }, function(err){ clearTimeout(giveUpTimer); throw err; });
   }
 
+  /* ---------- Female Arabic voice for reading aloud ---------- */
+  // Voices come from the visitor's device and their names differ per system, so pick by name:
+  // a known female Arabic voice first, then any Arabic voice of unknown gender, and only if the
+  // device has nothing but male voices, use one with a higher pitch so it sounds softer.
+  var FEMALE_VOICE = /zariyah|hoda|salma|laila|layla|mouna|amina|fatima|mariam|sana|female|أنثى/i;
+  var MALE_VOICE = /naayf|hamed|majed|maged|tarik|shakir|\bmale\b/i;
+  function pickVoice(){
+    var arabic = window.speechSynthesis.getVoices().filter(function(v){ return /^ar/i.test(v.lang); });
+    var rank = function(v){
+      var gender = FEMALE_VOICE.test(v.name) ? 0 : (MALE_VOICE.test(v.name) ? 2 : 1);
+      return gender * 2 + (/^ar-SA/i.test(v.lang) ? 0 : 1);
+    };
+    arabic.sort(function(a, b){ return rank(a) - rank(b); });
+    return arabic[0] || null;
+  }
+  window.mssFemaleVoice = function(utter){
+    utter.lang = 'ar-SA';
+    if (!window.speechSynthesis) return;
+    var voice = pickVoice();
+    if (!voice) return;
+    utter.voice = voice;
+    utter.lang = voice.lang;
+    if (MALE_VOICE.test(voice.name) && !FEMALE_VOICE.test(voice.name)) utter.pitch = 1.35;
+  };
+  if (window.speechSynthesis){
+    // Some browsers load the voice list late; asking early makes it ready by the first tap.
+    try { window.speechSynthesis.getVoices(); window.speechSynthesis.onvoiceschanged = function(){}; } catch(e){}
+  }
+
   /* ---------- Text-to-speech (read aloud) ---------- */
   var btnSpeak = document.getElementById('btnSpeak');
   var speaking = false;
@@ -1219,7 +1248,7 @@
     try {
       window.speechSynthesis.cancel();
       var utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'ar-SA';
+      window.mssFemaleVoice(utter);
       utter.rate = 0.92;
       utter.onend = function(){ stopSpeaking(); };
       utter.onerror = function(){ stopSpeaking(); };
@@ -1652,7 +1681,7 @@
     try{
       window.speechSynthesis.cancel();
       var u=new SpeechSynthesisUtterance(text.replace(/[\u{1F000}-\u{1FFFF}☀-➿️‍]/gu,''));
-      u.lang='ar-SA';u.rate=.95;window.speechSynthesis.speak(u);
+      if(window.mssFemaleVoice)window.mssFemaleVoice(u);else u.lang='ar-SA';u.rate=.95;window.speechSynthesis.speak(u);
     }catch(e){}
   }
   function hush(){
